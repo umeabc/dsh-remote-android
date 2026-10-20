@@ -162,6 +162,10 @@ class MainActivity : AppCompatActivity() {
             // the system's translucent scrim (which reads as a strip).
             window.isNavigationBarContrastEnforced = false
         }
+        // Set here so Flyme's contrast dim uses our colour instead of its own
+        // darkening over a transparent bar; re-pointed at the page colour in
+        // syncPageBackground().
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.canvas)
         setContentView(R.layout.activity_main)
         bindViews()
         configureWebView()
@@ -177,9 +181,16 @@ class MainActivity : AppCompatActivity() {
                 bar.updatePadding(top = bars.top)
                 bar.minimumHeight = (56 * resources.displayMetrics.density).toInt() + bars.top
             }
-            pairLayer.updatePadding(top = bars.top)
-            homeLayer.updatePadding(top = bars.top)
-            rootContainer.updatePadding(bottom = maxOf(bars.bottom, ime.bottom))
+            // SESSION is full-bleed: the WebView paints behind the navigation
+            // bar so no window backdrop can flash there. HOME/PAIR keep the
+            // inset so buttons stay clear of it. The IME still lifts the root.
+            pairLayer.updatePadding(top = bars.top, bottom = bars.bottom)
+            homeLayer.updatePadding(top = bars.top, bottom = bars.bottom)
+            rootContainer.updatePadding(bottom = ime.bottom)
+            // Reserve the nav-bar height inside the page (CSS px); while the
+            // keyboard is open the IME itself is the bottom edge.
+            val safeBottom = if (ime.bottom > 0) 0 else bars.bottom
+            injectSafeAreaBottom(safeBottom)
             insets
         }
 
@@ -668,14 +679,26 @@ class MainActivity : AppCompatActivity() {
         ) { raw ->
             val color = parseCssColor(raw) ?: return@evaluateJavascript
             webView.setBackgroundColor(color)
-            // Only the window paints the inset area; tinting the root would
-            // also tint the home/pair screens behind their light cards.
+            // root_container paints the inset area (the window background is
+            // hidden behind it), so it must carry the page colour too.
+            rootContainer.setBackgroundColor(color)
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(color))
+            window.navigationBarColor = color
             val dark = (0.299 * android.graphics.Color.red(color) +
                 0.587 * android.graphics.Color.green(color) +
                 0.114 * android.graphics.Color.blue(color)) < 140f
             WindowInsetsControllerCompat(window, rootContainer).isAppearanceLightNavigationBars = !dark
         }
+    }
+
+    /** Tell the page how much of the bottom is covered by the nav bar (CSS px). */
+    private fun injectSafeAreaBottom(bottomPx: Int) {
+        if (bottomPx < 0) return
+        val cssPx = (bottomPx / resources.displayMetrics.density).toInt()
+        webView.evaluateJavascript(
+            "document.documentElement.style.setProperty('--dshm-safe-bottom','${cssPx}px')",
+            null,
+        )
     }
 
     private fun parseCssColor(raw: String?): Int? {
@@ -743,7 +766,13 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 sessionProgress.visibility = View.GONE
                 loadRetries = 0
-                if (url?.startsWith("http://127.0.0.1") == true) syncPageBackground()
+                if (url?.startsWith("http://127.0.0.1") == true) {
+                    syncPageBackground()
+                    ViewCompat.getRootWindowInsets(rootContainer)?.let { rootInsets ->
+                        val bars = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                        if (bars.bottom > 0) injectSafeAreaBottom(bars.bottom)
+                    }
+                }
             }
         }
         webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->

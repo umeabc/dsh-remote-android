@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark palette: canvas matches the DSH dark page (#151517) so the
+         navigation-bar backdrop blends with the WebView content. -->
+    <color name="canvas">#151517</color>
+    <color name="surface">#1D1D20</color>
+    <color name="soft_surface">#242428</color>
+    <color name="border">#2E2E33</color>
+
+    <color name="navy">#2E5A80</color>
+    <color name="navy_pressed">#254A6B</color>
+    <color name="accent">#5B8CEF</color>
+    <color name="accent_soft">#1E2C45</color>
+
+    <color name="text_primary">#E8EAED</color>
+    <color name="text_secondary">#9AA1AB</color>
+    <color name="text_muted">#6B7280</color>
+
+    <color name="success">#34B374</color>
+    <color name="success_soft">#16301F</color>
+    <color name="warning">#D9A83C</color>
+    <color name="warning_soft">#332A14</color>
+    <color name="danger">#E06A6A</color>
+    <color name="danger_soft">#381D1D</color>
+
+    <color name="scrim">#99000000</color>
+    <color name="ripple_dark">#33FFFFFF</color>
+    <color name="ripple_light">#20000000</color>
+</resources>

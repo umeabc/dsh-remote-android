@@ -192,6 +192,7 @@
         android:id="@+id/home_layer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@color/canvas"
         android:fillViewport="true">
 
         <LinearLayout
@@ -310,6 +311,7 @@
         android:id="@+id/pair_layer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@color/canvas"
         android:orientation="vertical"
         android:visibility="gone">
 
