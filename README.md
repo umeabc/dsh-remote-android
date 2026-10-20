@@ -40,7 +40,7 @@ gradle :app:assembleDebug
 
 ## 配对
 
-1. 电脑安装 `dsh-remote-relay` 配套的 bridge 插件，打开 **设置 → 手机访问**，确认中转「已连接」。
+1. 电脑安装 [dsh-remote-plugin](https://github.com/umeabc/dsh-remote-plugin)，打开 **设置 → 手机访问**，确认中转「已连接」。
 2. 手机打开 App →「扫码添加电脑」，或「手动输入」粘贴连接码。
 3. 回到首页点「打开」。
 
@@ -79,7 +79,7 @@ dshm://relay?url=relay.example.com%3A9443&room=<32位hex>&key=<base64url 16字�
 ## 协议与配套
 
 中转协议、部署方式见 [dsh-remote-relay](https://github.com/umeabc/dsh-remote-relay)。
-电脑侧的 bridge 插件负责把隧道流转发到本机 DSH，并用配对码/二维码把控访问。
+电脑侧插件 [dsh-remote-plugin](https://github.com/umeabc/dsh-remote-plugin) 负责把隧道流转发到本机 DSH，并用配对码/二维码把控访问。
 
 ## License
 
