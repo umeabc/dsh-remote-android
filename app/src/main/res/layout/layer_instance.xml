@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/instance_layer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/canvas"
+    android:orientation="vertical"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:id="@+id/instance_app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:gravity="center_vertical"
+        android:minHeight="56dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:id="@+id/btn_instance_back"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/back"
+            android:padding="11dp"
+            android:src="@drawable/ic_back" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/instance_title"
+            android:textColor="@color/text_primary"
+            android:textSize="@dimen/text_headline_medium"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/instance_name_label"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/instance_name"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_input"
+                android:fontFamily="sans-serif"
+                android:hint="@string/instance_name_hint"
+                android:inputType="textCapSentences"
+                android:maxLength="40"
+                android:paddingHorizontal="12dp"
+                android:singleLine="true"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="@dimen/text_body_medium" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/instance_link_label"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_caption"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/btn_instance_paste"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:padding="6dp"
+                    android:text="@string/pair_btn_paste"
+                    android:textColor="@color/accent"
+                    android:textSize="@dimen/text_caption"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/instance_link"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_input"
+                android:fontFamily="monospace"
+                android:gravity="top|start"
+                android:hint="@string/instance_link_hint"
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:padding="12dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="@dimen/text_code" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/instance_link_desc"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption"
+                android:lineSpacingExtra="2dp" />
+
+            <TextView
+                android:id="@+id/instance_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/pair_error_invalid_link"
+                android:textColor="@color/danger"
+                android:textSize="@dimen/text_caption"
+                android:visibility="gone" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_instance_save"
+                style="@style/Widget.Dsh.Button.Primary"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/btn_height_primary"
+                android:layout_marginTop="20dp"
+                android:text="@string/instance_save" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_instance_delete"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/btn_height_outlined"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_danger_button"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null"
+                android:text="@string/instance_delete"
+                android:textAllCaps="false"
+                android:textColor="@color/danger"
+                android:textSize="@dimen/text_body_medium" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -88,7 +88,7 @@ class LocalProxy(
                 java.io.SequenceInputStream(java.io.ByteArrayInputStream(byteArrayOf(first.toByte())), input),
             )
             if (head == null) {
-                runCatching { Log.w(TAG, "no complete request head") }
+                runCatching { AppLog.w(TAG, "no complete request head") }
                 return
             }
             val request = HttpHead.parse(head)
@@ -105,7 +105,7 @@ class LocalProxy(
             }
             relay(client, input, head)
         } catch (error: Exception) {
-            runCatching { Log.w(TAG, "request failed", error) }
+            runCatching { AppLog.w(TAG, "request failed", error) }
             writeStatus(client, 502, "proxy error")
             runCatching { client.close() }
         } finally {
@@ -158,7 +158,7 @@ class LocalProxy(
         if (stream == null) {
             // Say why instead of closing with an empty response, which the
             // WebView reports as ERR_EMPTY_RESPONSE with no detail.
-            runCatching { Log.w(TAG, "tunnel not connected for ${requestPath(head)}") }
+            runCatching { AppLog.w(TAG, "tunnel not connected for ${requestPath(head)}") }
             writeStatus(client, 503, "tunnel not connected")
             return
         }

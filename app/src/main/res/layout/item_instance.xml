@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/bg_card"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_segmented_container">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/desktop_name_default"
+                android:src="@drawable/ic_computer" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/item_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/desktop_name_default"
+                android:textColor="@color/text_primary"
+                android:textSize="@dimen/text_body_large" />
+
+            <TextView
+                android:id="@+id/item_host"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="@string/settings_unknown"
+                android:textColor="@color/text_secondary"
+                android:textSize="@dimen/text_caption" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/item_edit"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/instance_title"
+            android:padding="9dp"
+            android:src="@drawable/ic_settings" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="12dp"
+        android:background="@color/border" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/item_dot"
+            android:layout_width="@dimen/status_dot_size"
+            android:layout_height="@dimen/status_dot_size"
+            android:background="@drawable/bg_segmented_active" />
+
+        <TextView
+            android:id="@+id/item_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/home_status_offline"
+            android:textColor="@color/text_secondary"
+            android:textSize="@dimen/text_body_medium" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/item_open"
+            style="@style/Widget.Dsh.Button.Primary"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/btn_height_compact"
+            android:paddingHorizontal="16dp"
+            android:text="@string/home_btn_open" />
+    </LinearLayout>
+</LinearLayout>

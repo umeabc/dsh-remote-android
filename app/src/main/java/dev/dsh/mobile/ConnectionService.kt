@@ -62,7 +62,9 @@ class ConnectionService : Service(), Tunnel.Listener {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            currentLink = saved
             startForegroundSafely(buildNotification(Phase.CONNECTING, "正在恢复连接…"))
+            AppLog.i("DshService", "restore $saved")
             connect(saved)
             return START_STICKY
         }
@@ -73,11 +75,15 @@ class ConnectionService : Service(), Tunnel.Listener {
                     stopSelf()
                     return START_NOT_STICKY
                 }
+                currentLink = link
                 prefs().edit().putBoolean(KEY_DESIRED, true).apply()
                 startForegroundSafely(buildNotification(Phase.CONNECTING, "正在连接中转…"))
+                AppLog.i("DshService", "connect ${Pairing.parse(link)?.host ?: link}")
                 connect(link)
             }
             ACTION_DISCONNECT -> {
+                currentLink = null
+                AppLog.i("DshService", "disconnect")
                 prefs().edit().putBoolean(KEY_DESIRED, false).apply()
                 disconnectInternal()
                 stopForegroundCompat()
@@ -328,6 +334,11 @@ class ConnectionService : Service(), Tunnel.Listener {
         var snapshot: Snapshot = Snapshot(Phase.IDLE, null, 0, null)
             private set
 
+        /** Connection code the current tunnel belongs to (for per-instance UI). */
+        @Volatile
+        var currentLink: String? = null
+            private set
+
         private val listeners = CopyOnWriteArrayList<(Snapshot) -> Unit>()
 
         fun observe(listener: (Snapshot) -> Unit) {
@@ -340,6 +351,7 @@ class ConnectionService : Service(), Tunnel.Listener {
         }
 
         fun start(context: Context, link: String) {
+            currentLink = link
             val intent = Intent(context, ConnectionService::class.java)
                 .setAction(ACTION_CONNECT)
                 .putExtra(EXTRA_LINK, link)
@@ -351,6 +363,7 @@ class ConnectionService : Service(), Tunnel.Listener {
                 .getBoolean("desired", false)
 
         fun disconnect(context: Context) {
+            currentLink = null
             context.startService(
                 Intent(context, ConnectionService::class.java).setAction(ACTION_DISCONNECT),
             )

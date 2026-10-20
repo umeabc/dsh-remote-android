@@ -19,6 +19,7 @@
     <string name="home_status_online">在线 · 刚刚活跃</string>
     <string name="home_status_online_en">Online · Active just now</string>
     <string name="home_status_offline">离线</string>
+    <string name="home_status_last">离线 · 上次连接 %1$s</string>
     <string name="home_status_offline_en">Offline</string>
     <string name="home_btn_scan_add">扫码添加电脑</string>
     <string name="home_btn_scan_add_en">Scan QR to Add</string>
@@ -156,4 +157,45 @@
     <string name="notif_text_connected_en">E2E Encrypted tunnel active with desktop studio</string>
     <string name="notif_action_disconnect">断开连接</string>
     <string name="notif_action_disconnect_en">Disconnect</string>
+    <string name="back">返回</string>
+    <string name="settings_unknown">—</string>
+
+    <string name="settings_global_title">设置</string>
+    <string name="settings_section_logs">运行日志</string>
+    <string name="settings_logs_card_title">连接日志</string>
+    <string name="settings_logs_card_desc">记录连接、加载和错误。反馈问题时可以复制给开发者。</string>
+    <string name="settings_view_logs">查看日志</string>
+    <string name="settings_clear_logs">清空</string>
+
+    <string name="logs_title">运行日志</string>
+    <string name="logs_copy">复制</string>
+    <string name="logs_clear">清空</string>
+    <string name="logs_empty">暂无日志</string>
+    <string name="logs_copied">已复制到剪贴板</string>
+    <string name="logs_cleared">已清空</string>
+
+    <string name="about_project_name_label">项目名称</string>
+    <string name="about_project_name">DSH Remote</string>
+    <string name="about_version_label">版本</string>
+    <string name="about_author_label">作者</string>
+    <string name="about_author">umeabc</string>
+    <string name="about_project_label">项目主页</string>
+    <string name="about_project">github.com/umeabc/dsh-remote-android</string>
+    <string name="about_license_label">开源协议</string>
+    <string name="about_license">MIT</string>
+
+    <string name="instance_title">连接设置</string>
+    <string name="instance_name_label">名称</string>
+    <string name="instance_name_hint">给这台电脑起个名字</string>
+    <string name="instance_link_label">连接码</string>
+    <string name="instance_link_hint">dshm://relay?url=…</string>
+    <string name="instance_link_desc">在电脑的「设置 → 手机访问」里复制连接码；也可以回到首页用扫码添加。</string>
+    <string name="instance_save">保存</string>
+    <string name="instance_saved">已保存</string>
+    <string name="instance_delete">删除这台电脑</string>
+    <string name="instance_deleted">已删除</string>
+    <string name="instance_delete_title">删除连接</string>
+    <string name="instance_delete_message">只删除手机上的保存记录，不影响电脑。</string>
+    <string name="home_status_inactive">未连接</string>
+    <string name="home_add_title">添加电脑</string>
 </resources>

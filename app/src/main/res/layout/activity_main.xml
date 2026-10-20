@@ -5,7 +5,6 @@
     android:layout_height="match_parent"
     android:background="@color/canvas">
 
-    <!-- ================================================================= -->
     <!-- 1. SESSION LAYER (Active Remote WebView + Minimal White App Bar)  -->
     <!-- ================================================================= -->
     <LinearLayout
@@ -187,7 +186,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- ================================================================= -->
     <!-- 2. DEVICE HOME LAYER (Flow 1: Device List & Pairing Launcher)     -->
     <!-- ================================================================= -->
     <ScrollView
@@ -243,100 +241,12 @@
                     android:contentDescription="Settings" />
             </LinearLayout>
 
-            <!-- Paired Device Card (when saved connection exists) -->
+            <!-- Saved desktop instances: one card per connection -->
             <LinearLayout
-                android:id="@+id/home_device_card"
+                android:id="@+id/home_instance_list"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp"
-                android:visibility="gone">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <!-- Computer Icon Badge -->
-                    <FrameLayout
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/bg_segmented_container">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_computer" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="12dp"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/home_device_name"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/desktop_name_default"
-                            android:textSize="@dimen/text_body_large"
-                            android:fontFamily="sans-serif-medium"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:id="@+id/home_device_host"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="relay.dsh.dev:9443"
-                            android:textSize="@dimen/text_caption"
-                            android:textColor="@color/text_secondary"
-                            android:fontFamily="monospace" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/border"
-                    android:layout_marginVertical="12dp" />
-
-                <!-- Bottom row: Status and Open Action -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:id="@+id/home_device_dot"
-                        android:layout_width="@dimen/status_dot_size"
-                        android:layout_height="@dimen/status_dot_size"
-                        android:background="@drawable/bg_segmented_active" />
-
-                    <TextView
-                        android:id="@+id/home_device_status"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="@string/home_status_online"
-                        android:textSize="@dimen/text_body_medium"
-                        android:textColor="@color/text_secondary" />
-
-                    <androidx.appcompat.widget.AppCompatButton
-                        android:id="@+id/btn_home_open"
-                        style="@style/Widget.Dsh.Button.Primary"
-                        android:layout_width="wrap_content"
-                        android:layout_height="@dimen/btn_height_compact"
-                        android:paddingHorizontal="16dp"
-                        android:text="@string/home_btn_open" />
-                </LinearLayout>
-            </LinearLayout>
+                android:orientation="vertical" />
 
             <!-- Empty State Card (when no device saved) -->
             <LinearLayout
@@ -394,7 +304,6 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ================================================================= -->
     <!-- 3. PAIRING LAYER (Flow 2: Segmented Control [Scan | Manual])      -->
     <!-- ================================================================= -->
     <LinearLayout
@@ -657,24 +566,7 @@
         </ScrollView>
     </LinearLayout>
 
-    <!-- ================================================================= -->
-    <!-- 4. SETTINGS MODAL OVERLAY                                         -->
-    <!-- ================================================================= -->
-    <FrameLayout
-        android:id="@+id/settings_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/scrim"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:background="@color/surface"
-            android:orientation="vertical">
-
-            <include layout="@layout/sheet_settings" />
-        </LinearLayout>
-    </FrameLayout>
+    <include layout="@layout/layer_settings" />
+    <include layout="@layout/layer_logs" />
+    <include layout="@layout/layer_instance" />
 </FrameLayout>

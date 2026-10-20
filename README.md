@@ -16,7 +16,9 @@ WebView ──http://127.0.0.1:8321──▶ LocalProxy ──Tunnel(AES-GCM)─
 
 ## 功能
 
+- **多台电脑**：每台电脑保存为一条实例，各自有名称、连接码和连接设置；首页点「打开」即可切换。
 - **配对简单**：扫电脑上的二维码，或粘贴 `dshm://relay?url=…&room=…&key=…` 连接码。
+- **全局设置**：运行日志（App 内查看、复制、清空）与关于（版本、作者、项目主页）。
 - **手机布局**：对话全宽、侧栏变覆盖式抽屉、隐藏桌面挂件；DSH 自己的设置页改成顶部标签页 + 满宽内容。
 - **首屏加速**：DSH 的 JS/CSS 从 APK 内置资源读取（可选，约 5 MB），插件 bundle 走 gzip + 不可变缓存。
 - **后台保活**：`ConnectionService` 前台服务持有隧道与本地代理，20 秒心跳、网络切换自动重拨、回前台自动恢复。
@@ -62,6 +64,8 @@ dshm://relay?url=relay.example.com%3A9443&room=<32位hex>&key=<base64url 16字�
 | `MainActivity.kt` | 首页 / 配对 / 会话 / 设置四个界面 |
 | `HttpHead.kt` | HTTP 请求头解析（可单测） |
 | `WebAssets.kt` | APK 内置前端资源 |
+| `Instances.kt` | 多实例存储：名称、连接码、当前连接 |
+| `AppLog.kt` | 内存日志环（设置页展示、可复制） |
 
 ## 安全
 

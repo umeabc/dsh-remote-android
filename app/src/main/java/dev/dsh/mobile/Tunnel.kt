@@ -168,7 +168,7 @@ class Tunnel(private val config: RelayConfig, private val listener: Listener) {
                         open(rxKey, rxCounter, header, payload)
                     } catch (error: Exception) {
                         runCatching {
-                            android.util.Log.w("DshTunnel", "open failed counter=$rxCounter len=${payload.size} stream=$streamId", error)
+                            AppLog.w("DshTunnel", "open failed counter=$rxCounter stream=$streamId", error)
                         }
                         runCatching { socket?.close() }
                         return
