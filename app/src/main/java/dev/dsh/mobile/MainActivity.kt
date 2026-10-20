@@ -35,6 +35,7 @@ import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.journeyapps.barcodescanner.ScanContract
@@ -156,6 +157,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Let our window colour show behind the navigation bar instead of
+            // the system's translucent scrim (which reads as a strip).
+            window.isNavigationBarContrastEnforced = false
+        }
         setContentView(R.layout.activity_main)
         bindViews()
         configureWebView()
@@ -237,6 +243,8 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         ConnectionService.observe(::onSnapshot)
         resumeIfNeeded()
+        // The page can switch theme in place; re-match the window on return.
+        if (screen == Screen.SESSION) webView.post { syncPageBackground() }
     }
 
     override fun onStop() {
@@ -647,11 +655,54 @@ class MainActivity : AppCompatActivity() {
 
     private fun prefs() = getSharedPreferences("dsh-mobile", Context.MODE_PRIVATE)
 
+    /**
+     * The session WebView is inset above the navigation bar, so that area is
+     * painted by the window. Colour the window (and the view's own background)
+     * from the page so the seam disappears in both light and dark themes.
+     */
+    private fun syncPageBackground() {
+        webView.evaluateJavascript(
+            "(function(){var b=getComputedStyle(document.body).backgroundColor;" +
+                "if(!b||b==='rgba(0, 0, 0, 0)'||b==='transparent')" +
+                "b=getComputedStyle(document.documentElement).backgroundColor;return b;})()",
+        ) { raw ->
+            val color = parseCssColor(raw) ?: return@evaluateJavascript
+            webView.setBackgroundColor(color)
+            // Only the window paints the inset area; tinting the root would
+            // also tint the home/pair screens behind their light cards.
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(color))
+            val dark = (0.299 * android.graphics.Color.red(color) +
+                0.587 * android.graphics.Color.green(color) +
+                0.114 * android.graphics.Color.blue(color)) < 140f
+            WindowInsetsControllerCompat(window, rootContainer).isAppearanceLightNavigationBars = !dark
+        }
+    }
+
+    private fun parseCssColor(raw: String?): Int? {
+        val text = raw?.trim()?.trim('"')?.lowercase() ?: return null
+        if (text.startsWith("#")) {
+            return runCatching { android.graphics.Color.parseColor(text) }.getOrNull()
+        }
+        if (!text.startsWith("rgb")) return null
+        val parts = text.substringAfter("(").substringBefore(")")
+            .split(',').map { it.trim().toFloatOrNull() ?: return null }
+        if (parts.size < 3) return null
+        if (parts.size >= 4 && parts[3] < 0.5f) return null
+        return android.graphics.Color.rgb(
+            parts[0].toInt().coerceIn(0, 255),
+            parts[1].toInt().coerceIn(0, 255),
+            parts[2].toInt().coerceIn(0, 255),
+        )
+    }
+
     // --- Session WebView ------------------------------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
         webView.setBackgroundColor(ContextCompat.getColor(this, R.color.canvas))
+        // Android 12+ stretch overscroll paints the view background at the
+        // edge; with a dark page that flashed a light strip while scrolling.
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -692,6 +743,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 sessionProgress.visibility = View.GONE
                 loadRetries = 0
+                if (url?.startsWith("http://127.0.0.1") == true) syncPageBackground()
             }
         }
         webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
