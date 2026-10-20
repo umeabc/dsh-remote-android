@@ -4,4 +4,6 @@ local.properties
 *.iml
 .idea/
 .kotlin/
-app/src/main/assets/dsh-web/
+signing/
+*.jks
+*.keystore
