@@ -29,5 +29,5 @@
     <color name="scrim">#80000000</color>
     <color name="ripple_dark">#20000000</color>
     <color name="ripple_light">#33FFFFFF</color>
-    <color name="ic_launcher_background">#E9F1FF</color>
+    <color name="ic_launcher_background">#1AFFFFFF</color>
 </resources>

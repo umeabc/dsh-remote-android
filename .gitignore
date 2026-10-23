@@ -7,3 +7,5 @@ local.properties
 signing/
 *.jks
 *.keystore
+icon-preview-*.png
+frame0.png

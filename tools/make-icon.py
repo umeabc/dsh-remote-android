@@ -10,9 +10,9 @@ from PIL import Image, ImageDraw
 
 SOURCE = sys.argv[1] if len(sys.argv) > 1 else 'tools/icon-source.png'
 RES = 'app/src/main/res'
-FILL_LEGACY = 0.86
+FILL_LEGACY = 0.66
 FILL_ADAPTIVE = 0.60
-BG = (233, 241, 255, 255)
+BG = (255, 255, 255, 26)  # 10% white: keeps some launchers from forcing an opaque tile
 
 src = Image.open(SOURCE).convert('RGBA')
 art_src = src.crop(src.getbbox())
@@ -37,6 +37,7 @@ for density, s in {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi'
     art = fit(s, FILL_LEGACY)
     canvas.alpha_composite(art, ((s - art.width) // 2, (s - art.height) // 2))
     canvas.save(f'{RES}/mipmap-{density}/ic_launcher.png')
+    canvas.save(f'{RES}/mipmap-{density}/ic_launcher_round.png')
 
 for density, s in {'mdpi': 108, 'hdpi': 162, 'xhdpi': 216, 'xxhdpi': 324, 'xxxhdpi': 432}.items():
     fg = Image.new('RGBA', (s, s), (0, 0, 0, 0))
