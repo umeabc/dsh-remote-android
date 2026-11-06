@@ -2,24 +2,17 @@
  * Copy the DSH web frontend out of the installed asar into the Android app so
  * the WebView can load its JS/CSS from the APK instead of the relay.
  *
- * Usage: node tools/sync-web-assets.mjs <path-to-app.asar>
+ * Usage: node tools/sync-web-assets.mjs [path-to-app.asar]
+ * Default asar: D:/dsh/resources/app.asar
  *
- * Point it at the app.asar of the DSH Desktop installation you build against,
- * for example:
- *   node tools/sync-web-assets.mjs "/path/to/DeepSeek Harness/resources/app.asar"
- *
- * The bundle is optional: without it every launch downloads the shell through
- * the tunnel, which still works but is slower on the first paint.
+ * The desktop's static server sends no cache headers, so without this bundle
+ * every launch re-downloads ~5 MB through the encrypted tunnel.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
-const asarPath = process.argv[2] ?? process.env.DSH_ASAR;
-if (asarPath === undefined || asarPath === '') {
-  console.error('usage: node tools/sync-web-assets.mjs <path-to-app.asar>');
-  process.exit(1);
-}
+const asarPath = process.argv[2] ?? 'D:/dsh/resources/app.asar';
 const prefix = '/dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/';
 const target = path.resolve('app/src/main/assets/dsh-web');
 

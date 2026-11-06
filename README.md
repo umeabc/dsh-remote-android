@@ -1,50 +1,154 @@
 # DSH Remote (Android)
 
-> English summary: a native Android client that opens your desktop **DeepSeek Harness** over an
-> end-to-end encrypted relay. It keeps the desktop's web UI, adds a phone layout, caches the shell
-> in the APK, and keeps the tunnel alive in a foreground service.
-
-用手机原生 App 打开电脑上的 DeepSeek Harness。连接通过一条 **AES-128-GCM 加密隧道**经过中转服务器，
-电脑不需要公网 IP、不需要端口映射、不需要 HTTPS 证书。
+用手机原生 App 打开电脑上的 DeepSeek Harness。App 内置一个本地 HTTP 代理，把 WebView 的每个 TCP 连接通过 **AES-128-GCM 加密隧道**送到中转服务器，再由桌面端的 `dsh-remote-plugin` 转给本机 DSH。
 
 ```
-WebView ──http://127.0.0.1:8321──▶ LocalProxy ──Tunnel(AES-GCM)──▶ Relay ──▶ dsh-remote-relay
-                                                                              │
-                                                                      127.0.0.1:8319
-                                                                      DeepSeek Harness
+WebView ──http://127.0.0.1:8321──▶ LocalProxy ──Tunnel(AES-GCM)──▶ Relay ──▶ dsh-remote-plugin ──▶ 本机 DSH（回环，端口由 DSH 决定）
 ```
 
-## 功能
-
-- **多台电脑**：每台电脑保存为一条实例，各自有名称、连接码和连接设置；首页点「打开」即可切换。
-- **配对简单**：扫电脑上的二维码，或粘贴 `dshm://relay?url=…&room=…&key=…` 连接码。
-- **全局设置**：运行日志（App 内查看、复制、清空）与关于（版本、作者、项目主页）。
-- **手机布局**：对话全宽、侧栏变覆盖式抽屉、隐藏桌面挂件；DSH 自己的设置页改成顶部标签页 + 满宽内容。
-- **首屏加速**：DSH 的 JS/CSS 从 APK 内置资源读取（可选，约 5 MB），插件 bundle 走 gzip + 不可变缓存。
-- **后台保活**：`ConnectionService` 前台服务持有隧道与本地代理，20 秒心跳、网络切换自动重拨、回前台自动恢复。
-- **文件与图片**：相册/文件选择器上传给模型；远程文件下载后用系统应用打开。
-- **诊断**：`adb logcat -s DshProxy DshTunnel` 能看到请求、隧道状态和解密失败。
+界面参照 [`april-jk/dsh-mobile`](https://github.com/april-jk/dsh-mobile) 的浅色设计语言（DMSans / Montserrat / FragmentMono 的系统字体映射，10dp 圆角，海军蓝主按钮）。
 
 ## 构建
 
 要求：JDK 17+、Android SDK（compileSdk 35）、Gradle 8.14+。
 
 ```bash
-# 可选：把 DSH 桌面前端打进 APK（不执行也能跑，只是首屏要走隧道）
-node tools/sync-web-assets.mjs "/path/to/DeepSeek Harness/resources/app.asar"
-
+cd dsh-mobile-android
 gradle :app:assembleDebug
 # 产物：app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-仓库里不包含 DSH 的前端产物（属于上游项目），`tools/sync-web-assets.mjs` 只负责从你本机的
-安装目录里复制，不会上传。
+当前构建使用 debug 签名，仅用于自装。发布版请配置自己的 keystore。
+
+## 界面
+
+| 屏幕 | 内容 |
+|---|---|
+| **我的电脑** | 已配对电脑卡片（名称、中转地址、在线状态点、上次连接时间）+「打开」；空状态引导扫码；「扫码添加电脑」「手动输入连接码」；右上角设置。 |
+| **添加电脑** | 分段控件「扫码绑定 / 手动输入」；扫码页带取景框；手动页支持粘贴 `dshm://` 连接码、行内错误提示；海军蓝「绑定电脑」。 |
+| **会话** | 48dp 白色顶栏（返回、标题、状态胶囊、刷新）+ 2dp 进度条 + WebView；连接中显示「正在连接电脑…」，电脑未响应/连接断开/页面错误有整屏诊断页和「重试」。 |
+| **设置** | 底部弹层：中转地址、脱敏连接码、加密标识、版本、断开连接。 |
+
+## 0.7.4：适配 DSH 0.2.2-rc.1
+
+App 代码**零改动** —— 它和 DSH 的耦合只有四样，0.2.2 全都还在：
+
+| 依赖 | 状态 |
+|---|---|
+| `data-dshm-boot`（首屏遮盖何时收起） | 仍在，实测 `ready` |
+| `--dshm-safe-bottom`（导航栏高度） | 仍由 `mobile.css` 的 `composerSeat` 规则消费 |
+| `dshm://` 连接码 / `dshm://disconnect` | 协议未变 |
+| `/assets/*`、`/favicon*`、`/manifest.webmanifest` 按内容哈希从 APK 回放 | 前端 bundle 换名（`index-BXV-oxvX.js` → `index-BgUyXZcc.js`），未内置的自动回落到隧道 |
+
+内置壳资源已同步：`node tools/sync-web-assets.mjs` → 88 个文件 / 5.1MB（0.2.2-rc.1 的
+`dsh-web-frontend/dist`）。
+
+桌面桥 0.2.3 的改动对这台手机同样是净收益：连接池不再有 32 条上限（每个打开的页面都会占一条
+`/plugins/events` SSE），页面关闭时上游立即释放。
+
+### 构建环境（已部署）
+
+Gradle 与 Android SDK 装在仓库外的 `D:/harness/.build-env`，不污染工作区：
+
+| 件 | 版本 / 位置 |
+|---|---|
+| JDK | Microsoft OpenJDK 21（`JAVA_HOME` 默认指它） |
+| Gradle | 8.14.5 → `.build-env/gradle-8.14.5` |
+| Android SDK | `.build-env/android-sdk`：`platforms;android-35`、`build-tools;35.0.0`、`platform-tools` |
+
+```bash
+bash tools/bootstrap-toolchain.sh   # 缺环境时重装（幂等，约 800MB）
+bash tools/build-apk.sh             # 出包：app/build/outputs/apk/debug/app-debug.apk
+```
+
+`build-apk.sh` 会自己写 `local.properties`（用正斜杠 —— Java properties 会把反斜杠当转义，
+`D:\harness` 会悄悄变成 `D:harness`，本项目就踩过这个坑，症状是
+`IOException: 文件名、目录名或卷标语法不正确`）。
+
+本轮产物：`app-debug.apk`，**0.7.4 / versionCode 15**，5.1 MB，debug 签名（`CN=Android Debug`），
+`zipalign` 校验通过，包内含 88 个内置壳资源文件（含新的 `assets/dsh-web/assets/index-BgUyXZcc.js`）。
+
+## 0.5.2 修复（真机确认）
+
+`ERR_EMPTY_RESPONSE` 的根因在**客户端隧道**：DATA 帧先按 streamId 查找流，找不到就 `continue`，**跳过了 AES-GCM 解密和计数器递增**。服务启动时的探针读完响应头就断开，桌面端随后发来的 DATA 落在已关闭的流上被跳过，通道计数器从此错位；紧接着 WebView 的第一个请求解密失败，隧道被关闭，浏览器收到 0 字节 —— 就是 `ERR_EMPTY_RESPONSE`。
+
+现在每个 DATA 帧都按线序解密并推进计数器，流不存在只丢弃明文；解密失败则整条隧道重连。已在 MEIZU 20（Android 16）上确认：WebView 加载 `http://127.0.0.1:8321/`，页面 `readyState=complete`、标题正常，锁屏 90 秒后仍在线。
+
+## 0.5.1 修复
+
+- 只有 `/assets/*`、`/favicon*`、`/manifest.webmanifest` 从 APK 本地返回；**首页 `/` 永远走隧道**，避免某些 Android 版本把目录当成空文件、用一个 0 字节的 200 回应首页。
+- 隧道未连通时返回 503（带说明），代理异常返回 502，不再“空响应断开”（WebView 里就是 `ERR_EMPTY_RESPONSE`）。
+- 诊断日志：`adb logcat -s DshProxy` 能看到每个请求的方法/路径、隧道是否连通、异常栈。
+
+
+0.5.0 里「打开就显示网页无法加载」是连接建立竞态：进入前台和网络回调各触发一次 `connect`，第二次把第一次尚未绑定完成的本地代理停掉了，WebView 指向的端口上没人监听。现在 `connect` 在主线程串行执行、本地代理只同步绑定一次并在重连时复用，`CONNECTING` 期间重复请求直接忽略；另外 WebView 主框架连接被拒绝时会自动重试两次。
+
+## 后台保活与断开
+
+- 心跳：App 每 20 秒发一个 PING，桌面回显；45 秒没有任何帧就判定连接已死并重连。切后台、锁屏、Wi-Fi/蜂窝切换后不会再出现「看着连着、其实已经断了」。
+- 网络变化：`registerDefaultNetworkCallback`（已声明 `ACCESS_NETWORK_STATE`）在默认网络切换或未连接时立刻重拨；回到前台如果状态是断开，会自动恢复。
+- 心跳前先判超时再发 PING，避免上传占住写锁时看门狗失效；超时用 `elapsedRealtime`（75 秒）。
+- 断开按钮：会话页右上角、会话列表按钮下面有一个电源图标，点了弹确认框 → 断开并回到首页（配对信息保留，随时可再打开）。
+- 通知：Android 要求前台服务必须有通知，否则后台连接会被系统杀掉。现在它是最低优先级、静音、可划掉的，只用来满足系统要求。
+
+## 保活（前台服务）
+
+`ConnectionService` 是 `Tunnel` + `LocalProxy` 的唯一持有者，前台服务 + 常驻通知：
+
+- 连接中：「正在连接中转…」；已连接：「已连接 · host:port」；断开后可点「重连」。
+- 通知自带「断开」动作，不需要回到 App。
+- Activity 只观察 `ConnectionService.observe` 的快照，旋转、切后台、被系统回收都不影响隧道；重新打开 App 会恢复同一端口上的会话。
+- 状态是诚实的：`CONNECTED` 只代表中转握手成功，App 会再向本机代理发一次探针，成功后才显示「在线」并加载页面；否则显示「电脑未响应」。
+- Android 13+ 首次连接会请求通知权限；拒绝不影响连接（通知只是不可见）。
+- 通知已改为 IMPORTANCE_MIN + 静音 + 可划掉；划掉不影响连接。
+- Android 14+ 使用 `specialUse` 前台服务类型（清单里有 subtype 说明），避免 `dataSync` 在 Android 15 上的 6 小时/24 小时预算把长连接掐断。
+
+系统/厂商仍可能清理后台：在电池设置里把 DSH Remote 设为「不限制」可进一步降低被杀概率；这是系统策略，App 不会申请忽略电池优化或常驻唤醒锁。
+
+## 内置前端（首屏加速）
+
+桌面端的静态资源没有任何缓存头，手机每次打开都要经隧道重新拉 ~5MB 的 JS/CSS。现在这些文件直接打进 APK：
+
+- `app/src/main/assets/dsh-web/`：88 个文件（`assets/*.js|css|woff2`、favicon），约 5.1MB，APK 从 3.9MB 增到 5.3MB。
+- `LocalProxy` 先读请求头：命中内置文件就以 `Cache-Control: immutable` 直接返回，其余（首页 HTML、`/api`、上传、WebSocket）照旧走隧道。
+- 文件名是内容哈希；桌面端升级后哈希变了，请求自动落回隧道，不会白屏。
+- 刷新资源：`node tools/sync-web-assets.mjs [app.asar路径]`，默认读 `D:/dsh/resources/app.asar`。
+
+## 连接速度
+
+手机端经中转首次打开要拉的是**客户端插件 bundle**（约 8.9MB 原始）。之前 bridge 把 `Accept-Encoding` 删掉了，等于全量明文传输；现在：
+
+- 转发浏览器的 `Accept-Encoding`，上游 gzip 后约 4.1MB（2.2x），HTML 需要注入时先解压再处理。
+- `/plugins/*`、`/assets/*` 的响应补上 `Cache-Control: immutable`（URL 里带 `rev`），WebView 第二次启动直接命中缓存，不再过网。
+- 内置的 4.8MB 壳资源仍然从 APK 读，不走网络。
+
+实测（本机 → 中转）：index 40KB/0.2s，插件 bundle 8.9MB→4.1MB、3.7s，静态 asset 940KB→313KB 且本地已内置。首次装好后第二次冷启动基本只剩 index + API + WebSocket。
+
+## 图片与文件上传
+
+输入框左侧的「添加文件或调用指令」会触发隐藏的 `<input type="file">`；WebView 通过 `onShowFileChooser` 拉起 Android 文件/相册选择器，选中的图片或文件由 DSH 客户端经同一条加密隧道上传到桌面端，然后随消息发给模型。支持多选。
+
+## DSH 设置页（手机布局）
+
+DSH 自己的设置弹窗是 342px 卡片 + 188px 导航列，手机上内容区只剩 ~150px。bridge 注入的布局把它改成：
+
+- 全屏面板，标题 + 横向可滚动标签页（通用设置 / 模型 / 手机访问…）；
+- 内容区占满宽度、独立滚动。
+
+## 远程文件与图片
+
+选图后 App 会把文件复制到自己的缓存，并把 `FileProvider` URI 交给页面，避免某些相册/云盘 provider 不授予 WebView 读取权限导致的 `failed to fetch`；下载同理走 `FileProvider` 打开。
+
+## 远程文件
+
+WebView 里点开可下载的文件（zip、docx、pdf 等）时，`setDownloadListener` 会把请求发到本机代理 → 隧道 → 桌面端，下载到 `cache/downloads/`，再用 `FileProvider` + `ACTION_VIEW` 交给手机上的原生应用打开。没有能打开该类型的应用时会提示。
 
 ## 配对
 
-1. 电脑安装 [dsh-remote-plugin](https://github.com/umeabc/dsh-remote-plugin)，打开 **设置 → 手机访问**，确认中转「已连接」。
-2. 手机打开 App →「扫码添加电脑」，或「手动输入」粘贴连接码。
-3. 回到首页点「打开」。
+1. 电脑：DSH → 设置 → 手机访问 → 中转服务器，填好地址，确认「已连接」。
+2. 手机：打开 App →「扫码添加电脑」扫二维码，或「手动输入」粘贴连接码。
+3. 绑定后回到「我的电脑」，点「打开」。
 
 连接码格式：
 
@@ -52,39 +156,37 @@ gradle :app:assembleDebug
 dshm://relay?url=relay.example.com%3A9443&room=<32位hex>&key=<base64url 16字节>
 ```
 
-连接码等同于钥匙，不要公开发布。
-
-## 结构
+## 代码结构
 
 | 文件 | 作用 |
 |---|---|
-| `Tunnel.kt` | 握手、帧编解码、HKDF-SHA256、AES-128-GCM、多路流、心跳与重连 |
-| `LocalProxy.kt` | `127.0.0.1:8321` 本地代理：内置静态资源本地返回，其余原样走隧道 |
-| `ConnectionService.kt` | 前台服务：持有隧道/代理由、通知、探针、网络回调 |
-| `MainActivity.kt` | 首页 / 配对 / 会话 / 设置四个界面 |
-| `HttpHead.kt` | HTTP 请求头解析（可单测） |
-| `WebAssets.kt` | APK 内置前端资源 |
-| `Instances.kt` | 多实例存储：名称、连接码、当前连接 |
-| `AppLog.kt` | 内存日志环（设置页展示、可复制） |
+| `Tunnel.kt` | 握手、帧编解码、HKDF-SHA256、AES-128-GCM、多路流、断线重连；计数器分配与加密、写帧在同一把锁内，避免并发流乱序导致 GCM 校验失败 |
+| `LocalProxy.kt` | `127.0.0.1:8321` 上的 TCP 代理：先解析请求头，内置前端本地返回，其余一条连接 = 一条隧道流；可热切换 Tunnel |
+| `HttpHead.kt` | HTTP/1.1 请求头读取与解析（可单测），识别 WebSocket 升级与 Range 请求 |
+| `WebAssets.kt` | 内置前端的 MIME 与读取，缺失时回退隧道 |
+| `ConnectionService.kt` | 前台服务：持有 Tunnel + LocalProxy、通知、探针、START_STICKY 恢复 |
+| `Pairing.kt` | 解析 `dshm://` 连接码 |
+| `MainActivity.kt` | 三个屏幕 + 设置弹层、WebView、扫码、权限、返回栈 |
 
-## 安全
+设计稿与实施计划在 [`../mobile-design`](../mobile-design)：`design.md`（tokens/线框/状态）、`plan.md`（架构/验收）、`MainActivity.proposed.kt`（设计侧的参考实现）。
 
-- 隧道载荷端到端加密，中转只按 `channel/stream` 转发，看不到内容。
-- 手机只持有 App 自己的配对信息；桌面端的 DSH 会话 Cookie 由电脑侧注入，不下发到手机。
-- APK 内的明文 HTTP 只允许发往 `127.0.0.1`；配对信息不参与云备份。
-- 连接码/房间密钥泄露等同于访问权泄露，可在电脑端「更换房间」作废。
+## 测试
+
+```bash
+# 协议向量（Kotlin ↔ Node 逐字节一致）
+gradle :app:testDebugUnitTest
+
+# 真实中转联调（会连到部署好的 relay）
+DSH_ROOM=<room> DSH_KEY=<key> DSH_RELAY_HOST=<relay-host> DSH_RELAY_PORT=<relay-port> \
+  gradle :app:testDebugUnitTest --tests "dev.dsh.mobile.RelayIntegrationTest" --rerun-tasks
+```
+
+已验证：`ProtocolTest` 5/5；`RelayIntegrationTest` 对着线上中转取回真实 DSH 首页；`assembleDebug` 成功。
+
+**未验证**：没有真机/模拟器，所以扫码、WebView 真机渲染、通知样式和后台保活的实际表现没有跑过；这些需要装到手机上确认。
 
 ## 已知限制
 
-- 没有实现所有 WebView 文件类型：可下载文件交给系统应用，其他预览依赖 DSH 页面自身。
-- 一个 App 只保存一个连接码（单电脑）。
-- 国产 ROM 的省电策略仍可能回收前台服务，需要把 App 设为「不限制」。
-
-## 协议与配套
-
-中转协议、部署方式见 [dsh-remote-relay](https://github.com/umeabc/dsh-remote-relay)。
-电脑侧插件 [dsh-remote-plugin](https://github.com/umeabc/dsh-remote-plugin) 负责把隧道流转发到本机 DSH，并用配对码/二维码把控访问。
-
-## License
-
-MIT
+- 没有实现 `WebChromeClient.onShowFileChooser`，聊天里的「选择文件」暂不可用。
+- 没有多电脑管理：一个 App 只保存一个连接码。
+- 明文 HTTP 只发往 `127.0.0.1`，外网方向全部走加密隧道。

@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var awaitingPicker = false
     private var loadRetries = 0
+    private var bootDeadline = 0L
 
     // Views
     private lateinit var rootContainer: View
@@ -78,6 +79,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sessionStatusText: TextView
     private lateinit var sessionProgress: ProgressBar
     private lateinit var webView: WebView
+    private lateinit var sessionLoading: View
+    private lateinit var loadingBar: ProgressBar
+    private lateinit var loadingPercent: TextView
     private lateinit var sessionErrorOverlay: View
     private lateinit var connectingSpinner: View
     private lateinit var errorIcon: ImageView
@@ -294,6 +298,9 @@ class MainActivity : AppCompatActivity() {
         sessionStatusText = findViewById(R.id.session_status_text)
         sessionProgress = findViewById(R.id.session_progress_bar)
         webView = findViewById(R.id.main_webview)
+        sessionLoading = findViewById(R.id.session_loading)
+        loadingBar = findViewById(R.id.loading_bar)
+        loadingPercent = findViewById(R.id.loading_percent)
         sessionErrorOverlay = findViewById(R.id.session_error_overlay)
         connectingSpinner = findViewById(R.id.session_connecting_spinner)
         errorIcon = findViewById(R.id.error_icon)
@@ -325,7 +332,15 @@ class MainActivity : AppCompatActivity() {
     // --- Service snapshot rendering -----------------------------------------
 
     private fun onSnapshot(snapshot: ConnectionService.Snapshot) {
+        val previousPhase = lastSnapshot.phase
         lastSnapshot = snapshot
+        // A transport switch (relay -> direct) keeps the same local port but
+        // drops every open stream, so the page must be reloaded.
+        if (snapshot.phase == ConnectionService.Phase.READY &&
+            previousPhase != ConnectionService.Phase.READY
+        ) {
+            loadedPort = 0
+        }
         AppLog.d("DshApp", "snapshot ${snapshot.phase} port=${snapshot.port} screen=$screen")
         if (snapshot.phase == ConnectionService.Phase.READY && snapshot.port > 0) {
             prefs().edit().putLong(KEY_LAST_CONNECTED, System.currentTimeMillis()).apply()
@@ -666,6 +681,36 @@ class MainActivity : AppCompatActivity() {
 
     private fun prefs() = getSharedPreferences("dsh-mobile", Context.MODE_PRIVATE)
 
+    /** Cover the half-rendered shell until the sidebar data has landed. */
+    private fun beginPageLoad() {
+        bootDeadline = System.currentTimeMillis() + 15_000
+        loadingBar.progress = 0
+        loadingPercent.text = getString(R.string.loading_percent_zero)
+        sessionLoading.alpha = 1f
+        sessionLoading.visibility = View.VISIBLE
+    }
+
+    private fun finishPageLoad() {
+        if (sessionLoading.visibility != View.VISIBLE) return
+        sessionLoading.animate().alpha(0f).setDuration(160).withEndAction {
+            sessionLoading.visibility = View.GONE
+        }.start()
+    }
+
+    private fun pollBoot() {
+        if (sessionLoading.visibility != View.VISIBLE) return
+        webView.evaluateJavascript(
+            "String(document.documentElement.dataset.dshmBoot || '')",
+        ) { raw ->
+            val state = raw?.trim()?.trim('"') ?: ""
+            if (state == "ready" || System.currentTimeMillis() > bootDeadline) {
+                finishPageLoad()
+            } else {
+                webView.postDelayed({ pollBoot() }, 250)
+            }
+        }
+    }
+
     /**
      * The session WebView is inset above the navigation bar, so that area is
      * painted by the window. Colour the window (and the view's own background)
@@ -754,6 +799,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 if (request.isForMainFrame) {
                     AppLog.w("DshApp", "load failed ${request.url} code=${error.errorCode} ${error.description}")
+                    finishPageLoad()
                     sessionProgress.visibility = View.GONE
                     showError(
                         icon = R.drawable.ic_wifi_off,
@@ -763,10 +809,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (url?.startsWith("http://127.0.0.1") == true) beginPageLoad()
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 sessionProgress.visibility = View.GONE
                 loadRetries = 0
                 if (url?.startsWith("http://127.0.0.1") == true) {
+                    pollBoot()
                     syncPageBackground()
                     ViewCompat.getRootWindowInsets(rootContainer)?.let { rootInsets ->
                         val bars = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -780,7 +832,12 @@ class MainActivity : AppCompatActivity() {
         }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
                 sessionProgress.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+                if (sessionLoading.visibility == View.VISIBLE) {
+                    loadingBar.progress = newProgress
+                    loadingPercent.text = getString(R.string.loading_percent, newProgress)
+                }
             }
 
             /**

@@ -47,6 +47,9 @@ class ConnectionService : Service(), Tunnel.Listener {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var destroyed = false
     @Volatile private var lastNetwork: Network? = null
+    @Volatile private var relayConfig: RelayConfig? = null
+    @Volatile private var directTried = false
+    @Volatile private var directActive = false
 
     override fun onCreate() {
         super.onCreate()
@@ -152,6 +155,95 @@ class ConnectionService : Service(), Tunnel.Listener {
     private fun prefs() = getSharedPreferences("dsh-mobile", Context.MODE_PRIVATE)
 
     /**
+     * Once the relay path is up, check whether the desktop can be reached
+     * directly (same LAN, or global IPv6 on both ends). IPv6 is preferred:
+     * it needs no NAT mapping at all.
+     */
+    private fun maybeGoDirect() {
+        if (directTried || directActive) return
+        val info = tunnel?.directInfo ?: return
+        val relay = relayConfig ?: return
+        directTried = true
+        val myGeneration = generation
+        Thread({
+            // IPv6 first: it is the only candidate that survives NAT.
+            // IPv4 candidates from another subnet can never work, so skip them
+            // instead of burning a full timeout each.
+            val localV4 = localIpv4Prefixes()
+            fun isPrivateV4(host: String): Boolean {
+                if (host.startsWith("10.") || host.startsWith("192.168.")) return true
+                if (!host.startsWith("172.")) return false
+                return host.split('.').getOrNull(1)?.toIntOrNull() in 16..31
+            }
+            val ordered = info.candidates
+                .filter { candidate ->
+                    candidate.contains(':') ||
+                        !isPrivateV4(candidate) ||
+                        localV4.contains(candidate.substringBeforeLast('.', ""))
+                }
+                .sortedWith(compareBy({ if (it.contains(':')) 0 else if (!isPrivateV4(it)) 1 else 2 }, { it }))
+            if (ordered.isEmpty()) {
+                AppLog.i("DshDirect", "no plausible candidate in ${info.candidates.joinToString()}")
+                return@Thread
+            }
+            val pool = java.util.concurrent.Executors.newFixedThreadPool(minOf(4, ordered.size))
+            val results = ordered.map { candidate ->
+                pool.submit<Pair<String, Boolean>> { candidate to probeDirect(candidate, info.port, relay) }
+            }.map { it.get() }
+            pool.shutdownNow()
+            val target = results.firstOrNull { it.second }?.first
+            if (target == null) {
+                AppLog.i("DshDirect", "no reachable candidate (${ordered.joinToString()})")
+                return@Thread
+            }
+            AppLog.i("DshDirect", "direct ok via $target:${info.port}")
+            mainHandler.post {
+                if (generation != myGeneration || relayConfig == null) return@post
+                directActive = true
+                connectTo(RelayConfig(target, info.port, relay.room, relay.key))
+            }
+        }, "dsh-direct").also { it.isDaemon = true }.start()
+    }
+
+    /** /24 prefixes of this phone, used to drop candidates on other LANs. */
+    private fun localIpv4Prefixes(): Set<String> = try {
+        java.util.Collections.list(java.net.NetworkInterface.getNetworkInterfaces())
+            .flatMap { nic -> java.util.Collections.list(nic.inetAddresses) }
+            .filterIsInstance<java.net.Inet4Address>()
+            .map { it.hostAddress.substringBeforeLast('.') }
+            .toSet()
+    } catch (_: Exception) {
+        emptySet()
+    }
+
+    /** Open the desktop's direct listener and complete the handshake. */
+    private fun probeDirect(host: String, port: Int, config: RelayConfig): Boolean {
+        return try {
+            java.net.Socket().use { socket ->
+                socket.connect(java.net.InetSocketAddress(host, port), 1500)
+                socket.soTimeout = 1500
+                val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+                val saltText = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(salt)
+                val hello = "{\"v\":1,\"role\":\"client\",\"room\":\"${config.room}\",\"salt\":\"$saltText\"}"
+                val body = hello.toByteArray(Charsets.UTF_8)
+                val out = socket.getOutputStream()
+                out.write(byteArrayOf((body.size ushr 24).toByte(), (body.size ushr 16).toByte(), (body.size ushr 8).toByte(), body.size.toByte()))
+                out.write(body)
+                out.flush()
+                val input = java.io.DataInputStream(socket.getInputStream())
+                val length = input.readInt()
+                if (length <= 0 || length > 4096) return false
+                val buffer = ByteArray(length)
+                input.readFully(buffer)
+                org.json.JSONObject(String(buffer, Charsets.UTF_8)).optBoolean("ok", false)
+            }
+        } catch (error: Exception) {
+            AppLog.d("DshDirect", "probe $host:$port failed: ${error.message}")
+            false
+        }
+    }
+
+    /**
      * Serialized on the main thread: binding the loopback proxy is synchronous,
      * so two queued connects (task resume + network callback) can never leave a
      * half-started listener behind the WebView's origin.
@@ -162,6 +254,11 @@ class ConnectionService : Service(), Tunnel.Listener {
             publish(Phase.DISCONNECTED, "连接码无效", 0)
             return
         }
+        relayConfig = config
+        connectTo(config)
+    }
+
+    private fun connectTo(config: RelayConfig) {
         generation += 1
         tunnel?.stop()
         endpoint = "${config.host}:${config.port}"
@@ -207,6 +304,18 @@ class ConnectionService : Service(), Tunnel.Listener {
                 probeDesktop(generation)
             }
             Tunnel.State.DISCONNECTED -> {
+                if (directActive) {
+                    // The direct path died (Wi-Fi left, IPv6 dropped): fall
+                    // back to the relay instead of retrying a dead address.
+                    directActive = false
+                    directTried = true
+                    AppLog.w("DshDirect", "direct lost, falling back to relay")
+                    val link = prefs().getString(KEY_LINK, null)
+                    if (!link.isNullOrBlank()) {
+                        connect(link)
+                        return
+                    }
+                }
                 publish(Phase.DISCONNECTED, detail, proxy?.port ?: 0)
                 updateNotification(buildNotification(Phase.DISCONNECTED, detail ?: "连接已断开"))
             }
@@ -235,6 +344,16 @@ class ConnectionService : Service(), Tunnel.Listener {
             if (reachable) {
                 publish(Phase.READY, null, port)
                 updateNotification(buildNotification(Phase.READY, "已连接 · ${endpoint ?: "DSH"}"))
+            } else if (directActive) {
+                // Direct endpoint accepted TCP but the desktop did not answer:
+                // do not leave the user on a dead transport.
+                directActive = false
+                directTried = true
+                AppLog.w("DshDirect", "direct unreachable, falling back to relay")
+                mainHandler.post {
+                    val link = prefs().getString(KEY_LINK, null)
+                    if (gen == generation && !link.isNullOrBlank()) connect(link)
+                }
             } else {
                 publish(Phase.UNREACHABLE, "电脑未响应", port)
                 updateNotification(buildNotification(Phase.UNREACHABLE, "中转已连接，电脑未响应"))
@@ -245,6 +364,7 @@ class ConnectionService : Service(), Tunnel.Listener {
     private fun publish(phase: Phase, detail: String?, port: Int) {
         val next = Snapshot(phase, detail, port, endpoint)
         snapshot = next
+        if (phase == Phase.READY) maybeGoDirect()
         mainHandler.post {
             for (listener in listeners) {
                 runCatching { listener(next) }

@@ -128,6 +128,52 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
+            <!-- Page loading cover: stays until the sidebar data is in. -->
+            <LinearLayout
+                android:id="@+id/session_loading"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/canvas"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/loading_spinner"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:indeterminateTint="@color/accent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="@string/loading_title"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_body_large"
+                    android:fontFamily="sans-serif-medium" />
+
+                <ProgressBar
+                    android:id="@+id/loading_bar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="180dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="18dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="@color/accent"
+                    android:progressBackgroundTint="@color/border" />
+
+                <TextView
+                    android:id="@+id/loading_percent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/loading_percent_zero"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_caption" />
+            </LinearLayout>
+
             <!-- Full-Screen Error State Overlay -->
             <LinearLayout
                 android:id="@+id/session_error_overlay"

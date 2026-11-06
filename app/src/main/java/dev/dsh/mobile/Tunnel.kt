@@ -28,6 +28,7 @@ private const val TYPE_FIN = 3
 private const val TYPE_RST = 4
 private const val TYPE_CHANNEL_CLOSED = 6
 private const val TYPE_PING = 5
+private const val TYPE_DIRECT = 7
 private const val HEARTBEAT_MS = 20_000L
 private const val HEARTBEAT_TIMEOUT_MS = 75_000L
 
@@ -43,6 +44,9 @@ private const val QUEUE_DEPTH = 64
  */
 class Tunnel(private val config: RelayConfig, private val listener: Listener) {
 
+    /** Where the desktop can also be reached without the relay. */
+    data class DirectInfo(val port: Int, val candidates: List<String>)
+
     interface Listener {
         fun onState(state: State, detail: String?)
     }
@@ -55,6 +59,8 @@ class Tunnel(private val config: RelayConfig, private val listener: Listener) {
     @Volatile private var connected = false
     @Volatile private var lastRxAt = 0L
     @Volatile private var silent = false
+    @Volatile var directInfo: DirectInfo? = null
+        private set
     private var heartbeat: Thread? = null
 
     private var channel = 0
@@ -179,6 +185,7 @@ class Tunnel(private val config: RelayConfig, private val listener: Listener) {
                 TYPE_FIN -> streams.remove(streamId)?.finish()
                 TYPE_RST -> streams.remove(streamId)?.abort()
                 TYPE_CHANNEL_CLOSED -> closeAllStreams()
+                TYPE_DIRECT -> handleDirect(payload)
                 TYPE_HELLO, TYPE_PING -> Unit
             }
         }
@@ -351,6 +358,26 @@ class Tunnel(private val config: RelayConfig, private val listener: Listener) {
             queue.offer(ByteArray(0))
             sendFrame(id, TYPE_RST, null)
         }
+    }
+
+    /** Desktop advertises LAN / IPv6 endpoints right after the channel opens. */
+    private fun handleDirect(payload: ByteArray) {
+        runCatching {
+            val json = org.json.JSONObject(String(payload, Charsets.UTF_8))
+            if (!json.optBoolean("enabled", false)) return
+            val port = json.optInt("port", 0)
+            val array = json.optJSONArray("candidates") ?: return
+            val list = buildList {
+                for (index in 0 until array.length()) {
+                    val host = array.optString(index).trim()
+                    if (host.isNotEmpty()) add(host)
+                }
+            }
+            if (port in 1..65535 && list.isNotEmpty()) {
+                directInfo = DirectInfo(port, list)
+                AppLog.i("DshTunnel", "direct candidates ${list.joinToString()} port=$port")
+            }
+        }.onFailure { AppLog.w("DshTunnel", "bad direct info", it) }
     }
 
     private fun monotonicMillis(): Long = System.nanoTime() / 1_000_000L
