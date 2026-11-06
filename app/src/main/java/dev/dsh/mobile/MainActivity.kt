@@ -245,6 +245,7 @@ class MainActivity : AppCompatActivity() {
             if (webView.canGoBack()) webView.goBack() else showScreen(Screen.HOME)
         }
         findViewById<View>(R.id.btn_session_refresh).setOnClickListener { refreshSession() }
+        findViewById<View>(R.id.btn_session_exit).setOnClickListener { confirmDisconnect() }
         findViewById<View>(R.id.btn_session_settings).setOnClickListener { showSettings(true) }
         findViewById<View>(R.id.btn_settings_back).setOnClickListener { showSettings(false) }
         findViewById<View>(R.id.btn_view_logs).setOnClickListener { showLogs(true) }

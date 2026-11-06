@@ -98,6 +98,8 @@
     <string name="error_generic_title_en">Connection Error</string>
     <string name="error_generic_body">网络通道发生意外错误，请稍后重试。</string>
     <string name="error_generic_body_en">Unexpected tunnel error occurred. Please try again.</string>
+    <string name="session_exit">断开连接</string>
+    <string name="session_exit_en">Disconnect</string>
     <string name="error_old_webview_title">系统 WebView 版本过旧</string>
     <string name="error_old_webview_title_en">System WebView Too Old</string>
     <string name="error_old_webview_body">这台设备的 WebView 是 Chrome %1$s，而 DeepSeek Harness 需要 Chrome 119 以上。请在应用商店更新「Android System WebView」或「Chrome」，然后点重试。</string>
