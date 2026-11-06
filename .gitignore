@@ -9,4 +9,3 @@ signing/
 *.keystore
 icon-preview-*.png
 frame0.png
-app/src/main/assets/

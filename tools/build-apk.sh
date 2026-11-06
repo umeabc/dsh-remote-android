@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Build the debug APK with the out-of-tree toolchain.
+# Build the APK with the out-of-tree toolchain.
 #
-#   bash tools/build-apk.sh
+#   bash tools/build-apk.sh                     # debug:  app-debug.apk
+#   bash tools/build-apk.sh :app:assembleRelease # release: app-release.apk (signed)
+#
+# A release build needs signing/keystore.properties + its keystore (both
+# gitignored); without them Gradle produces an unsigned, uninstallable APK.
 #
 # Environment:
 #   DSH_BUILD_ENV   toolchain root          (default D:/harness/.build-env)
@@ -30,9 +34,17 @@ fi
 printf 'sdk.dir=%s\n' "$SDK" > local.properties
 
 cd "$(dirname "$0")/.."
-"$GRADLE" :app:assembleDebug --no-daemon --console=plain "$@"
+TASK="${1:-:app:assembleDebug}"
+"$GRADLE" "$TASK" --no-daemon --console=plain
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
+case "$TASK" in
+  *Release*) APK="app/build/outputs/apk/release/app-release.apk" ;;
+  *)         APK="app/build/outputs/apk/debug/app-debug.apk" ;;
+esac
+
 echo
 echo "built: $APK"
 ls -lh "$APK"
+if [ -f signing/keystore.properties ] && [ "${TASK}" != "${TASK%Release*}" ]; then
+  "$SDK/build-tools/35.0.0/apksigner.bat" verify --print-certs "$APK" 2>&1 | head -2 || true
+fi

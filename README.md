@@ -58,16 +58,50 @@ Gradle 与 Android SDK 装在仓库外的 `D:/harness/.build-env`，不污染工
 | Android SDK | `.build-env/android-sdk`：`platforms;android-35`、`build-tools;35.0.0`、`platform-tools` |
 
 ```bash
-bash tools/bootstrap-toolchain.sh   # 缺环境时重装（幂等，约 800MB）
-bash tools/build-apk.sh             # 出包：app/build/outputs/apk/debug/app-debug.apk
+bash tools/bootstrap-toolchain.sh              # 缺环境时重装（幂等，约 800MB）
+bash tools/build-apk.sh                        # debug:  app-debug.apk
+bash tools/build-apk.sh :app:assembleRelease   # release: app-release.apk（已签名）
 ```
 
 `build-apk.sh` 会自己写 `local.properties`（用正斜杠 —— Java properties 会把反斜杠当转义，
 `D:\harness` 会悄悄变成 `D:harness`，本项目就踩过这个坑，症状是
 `IOException: 文件名、目录名或卷标语法不正确`）。
 
-本轮产物：`app-debug.apk`，**0.7.4 / versionCode 15**，5.1 MB，debug 签名（`CN=Android Debug`），
-`zipalign` 校验通过，包内含 88 个内置壳资源文件（含新的 `assets/dsh-web/assets/index-BgUyXZcc.js`）。
+本轮产物：
+
+| 包 | 大小 | 签名 |
+|---|---|---|
+| `app-release.apk`（对外分发） | **4.2 MB** | `CN=DSH Remote, OU=Android, O=umeabc, C=CN` |
+| `app-debug.apk`（本机调试） | 5.1 MB | `CN=Android Debug` |
+
+均为 **0.7.4 / versionCode 15**，`zipalign` 通过，包内含 88 个内置壳资源（含新的
+`assets/dsh-web/assets/index-BgUyXZcc.js`）。
+
+### 签名
+
+release 签名密钥在仓库外（`signing/` 被 gitignore）：
+
+```
+signing/dsh-remote-release.jks      # RSA 4096，validity 10000 天，别名 dsh-remote
+signing/keystore.properties         # storePassword / keyPassword（本地明文，勿外传）
+```
+
+证书指纹（用于校验下载到的包是同一个签名者）：
+
+```
+SHA-256  9F:99:FC:3D:47:7B:85:D7:05:01:5A:DE:37:80:CB:B5:
+         A8:A4:E4:05:7A:0D:C8:FD:BF:9B:28:56:0E:C0:B4:89
+```
+
+**这个 keystore 丢了就再也签不出能覆盖安装的更新包**，请自行备份 `signing/` 整个目录（连同
+`keystore.properties` 里的口令）。校验下载包：
+
+```bash
+apksigner verify --print-certs dsh-remote-0.7.4.apk
+```
+
+旧的 `signing/dsh-remote-android.jks`（2026-10-20）口令已不可考，无法再用于签名，已移到
+`signing/legacy-orphan/`；因此 0.7.4 是这批包的第一把 release 密钥。
 
 ## 0.5.2 修复（真机确认）
 
