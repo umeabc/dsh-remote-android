@@ -34,48 +34,61 @@
                 android:src="@drawable/ic_back"
                 android:contentDescription="Back" />
 
-            <TextView
-                android:id="@+id/session_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/session_app_bar_title"
-                android:textSize="@dimen/text_title_app_bar"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="@color/text_primary" />
-
-            <!-- Status Pill (Dot + Text) -->
+            <!-- Title and status share the leftover width. The title is the only
+                 flexible child, so a very long device name ellipsises instead of
+                 pushing the action buttons off the right edge. -->
             <LinearLayout
-                android:id="@+id/session_status_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="24dp"
-                android:layout_marginStart="10dp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:background="@drawable/bg_status_pill"
-                android:paddingHorizontal="8dp">
-
-                <View
-                    android:id="@+id/session_status_dot"
-                    android:layout_width="@dimen/status_dot_size"
-                    android:layout_height="@dimen/status_dot_size"
-                    android:background="@drawable/bg_segmented_active" />
+                android:baselineAligned="false">
 
                 <TextView
-                    android:id="@+id/session_status_text"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/session_title"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="@string/status_connected"
-                    android:textSize="@dimen/text_micro"
-                    android:textColor="@color/text_secondary"
-                    android:fontFamily="sans-serif-medium" />
-            </LinearLayout>
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="@string/session_app_bar_title"
+                    android:textSize="@dimen/text_title_app_bar"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/text_primary" />
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
+                <!-- Status Pill (Dot + Text) -->
+                <LinearLayout
+                    android:id="@+id/session_status_pill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_status_pill"
+                    android:paddingHorizontal="8dp">
+
+                    <View
+                        android:id="@+id/session_status_dot"
+                        android:layout_width="@dimen/status_dot_size"
+                        android:layout_height="@dimen/status_dot_size"
+                        android:background="@drawable/bg_segmented_active" />
+
+                    <TextView
+                        android:id="@+id/session_status_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:maxLines="1"
+                        android:maxWidth="128dp"
+                        android:ellipsize="end"
+                        android:text="@string/status_connected"
+                        android:textSize="@dimen/text_micro"
+                        android:textColor="@color/text_secondary"
+                        android:fontFamily="sans-serif-medium" />
+                </LinearLayout>
+            </LinearLayout>
 
             <!-- Refresh Button -->
             <ImageView
