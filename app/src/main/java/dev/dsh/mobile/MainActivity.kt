@@ -58,6 +58,19 @@ class MainActivity : AppCompatActivity() {
     private enum class PairMode { SCAN, MANUAL }
 
     private var screen = Screen.HOME
+
+    /** True once the current document finished loading and is still on screen. */
+    private var pageLoaded = false
+
+    /** True when that document actually painted the DSH shell (not a blank page). */
+    private var pageUsable = false
+
+    /**
+     * The page failed for a reason a reconnect cannot fix (an old system
+     * WebView). Keep saying so instead of letting every tunnel blip replace the
+     * explanation with a blank page.
+     */
+    private var capabilityBlocked = false
     private var pairMode = PairMode.SCAN
     private var lastSnapshot: ConnectionService.Snapshot = ConnectionService.snapshot
     private var loadedPort: Int = 0
@@ -332,13 +345,12 @@ class MainActivity : AppCompatActivity() {
     // --- Service snapshot rendering -----------------------------------------
 
     private fun onSnapshot(snapshot: ConnectionService.Snapshot) {
-        val previousPhase = lastSnapshot.phase
+        val previousTransport = lastSnapshot.transport
         lastSnapshot = snapshot
-        // A transport switch (relay -> direct) keeps the same local port but
-        // drops every open stream, so the page must be reloaded.
-        if (snapshot.phase == ConnectionService.Phase.READY &&
-            previousPhase != ConnectionService.Phase.READY
-        ) {
+        // Only a transport switch (relay <-> direct) invalidates the open
+        // streams behind the page; an ordinary redial keeps them on the same
+        // loopback origin, so reloading there just repaints the shell.
+        if (snapshot.phase == ConnectionService.Phase.READY && snapshot.transport != previousTransport) {
             loadedPort = 0
         }
         AppLog.d("DshApp", "snapshot ${snapshot.phase} port=${snapshot.port} screen=$screen")
@@ -697,6 +709,41 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    /**
+     * The DSH shell needs a current browser. On an old system WebView (some
+     * emulators and phones still ship Chromium 91) the bundle throws
+     * `Promise.withResolvers is not a function` while mounting, the root stays
+     * empty, and the user is left on a blank white page with no clue why.
+     * Detect it and say so instead.
+     */
+    private fun checkPageCapabilities() {
+        webView.evaluateJavascript(
+            "(function(){var p=navigator.userAgent.split('Chrome/')[1]||'';" +
+                "var v=parseInt(p,10)||0;" +
+                "var r=document.getElementById('root');" +
+                "return JSON.stringify({chrome:v,root:r?r.childElementCount:0," +
+                "modern:typeof Promise.withResolvers==='function'});})()",
+        ) { raw ->
+            val json = raw?.trim()?.removeSurrounding("\"")?.replace("\\\"", "\"") ?: return@evaluateJavascript
+            val parsed = runCatching { org.json.JSONObject(json) }.getOrNull() ?: return@evaluateJavascript
+            if (parsed.optBoolean("modern", true)) {
+                // Modern enough to run the shell; treat a non-empty root as the
+                // signal that the page is worth keeping on screen.
+                pageUsable = parsed.optInt("root", 0) > 0
+                return@evaluateJavascript
+            }
+            val chrome = parsed.optInt("chrome", 0)
+            AppLog.w("DshApp", "webview too old: chrome=$chrome")
+            capabilityBlocked = true
+            pageUsable = false
+            showError(
+                icon = R.drawable.ic_alert_triangle,
+                title = getString(R.string.error_old_webview_title),
+                body = getString(R.string.error_old_webview_body, chrome.toString()),
+            )
+        }
+    }
+
     private fun pollBoot() {
         if (sessionLoading.visibility != View.VISIBLE) return
         webView.evaluateJavascript(
@@ -767,6 +814,9 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
+        // Debug builds expose the page to chrome://inspect, which is the only
+        // way to read console errors from inside the WebView shell.
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
         webView.setBackgroundColor(ContextCompat.getColor(this, R.color.canvas))
         // Android 12+ stretch overscroll paints the view background at the
         // edge; with a dark page that flashed a light strip while scrolling.
@@ -811,14 +861,19 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                if (url?.startsWith("http://127.0.0.1") == true) beginPageLoad()
+                if (url?.startsWith("http://127.0.0.1") == true) {
+                    pageLoaded = false
+                    beginPageLoad()
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 sessionProgress.visibility = View.GONE
                 loadRetries = 0
                 if (url?.startsWith("http://127.0.0.1") == true) {
+                    pageLoaded = true
                     pollBoot()
+                    checkPageCapabilities()
                     syncPageBackground()
                     ViewCompat.getRootWindowInsets(rootContainer)?.let { rootInsets ->
                         val bars = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -937,31 +992,55 @@ class MainActivity : AppCompatActivity() {
     private fun loadSessionUrl(port: Int) {
         AppLog.d("DshApp", "loadSessionUrl port=$port loaded=$loadedPort url=${webView.url}")
         if (port <= 0) return
+        // The origin is stable across reconnects (the proxy keeps its port), so a
+        // REDIAL must not reload: the page is still valid and reloading it just
+        // repaints the shell from scratch. Only a changed origin triggers a load.
         if (port == loadedPort && webView.url != null) return
         loadedPort = port
+        pageLoaded = false
+        pageUsable = false
+        capabilityBlocked = false
         hideError()
         sessionProgress.visibility = View.VISIBLE
         webView.loadUrl("http://127.0.0.1:$port/")
     }
 
+    /**
+     * A reconnect in progress must not paint over a page that is already on
+     * screen: the tunnel redials every few seconds on a flaky link, and swapping
+     * the session for the "connecting" panel made the app flash between two
+     * backgrounds. Keep the page and let the status pill carry the state; only
+     * fall back to a full-screen panel when there is nothing usable to show.
+     */
     private fun renderSessionState() {
+        if (capabilityBlocked) return
+        val pageLive = pageUsable
         when (lastSnapshot.phase) {
             ConnectionService.Phase.READY -> {
                 hideError()
                 lastSnapshot.port.takeIf { it > 0 }?.let { loadSessionUrl(it) }
             }
-            ConnectionService.Phase.UNREACHABLE -> showError(
-                icon = R.drawable.ic_computer_offline,
-                title = "电脑未响应",
-                body = getString(R.string.error_offline_body),
-            )
-            ConnectionService.Phase.DISCONNECTED -> showError(
-                icon = R.drawable.ic_alert_triangle,
-                title = "连接已断开",
-                body = getString(R.string.error_generic_body),
-            )
-            else -> showConnecting()
+            ConnectionService.Phase.UNREACHABLE ->
+                if (pageLive) showStatusOnly() else showError(
+                    icon = R.drawable.ic_computer_offline,
+                    title = "电脑未响应",
+                    body = getString(R.string.error_offline_body),
+                )
+            ConnectionService.Phase.DISCONNECTED ->
+                if (pageLive) showStatusOnly() else showError(
+                    icon = R.drawable.ic_alert_triangle,
+                    title = "连接已断开",
+                    body = getString(R.string.error_generic_body),
+                )
+            else -> if (pageLive) showStatusOnly() else showConnecting()
         }
+    }
+
+    /** Keep the page visible while a redial is in flight. */
+    private fun showStatusOnly() {
+        sessionErrorOverlay.visibility = View.GONE
+        webView.visibility = View.VISIBLE
+        sessionProgress.visibility = View.GONE
     }
 
     private fun showConnecting() {

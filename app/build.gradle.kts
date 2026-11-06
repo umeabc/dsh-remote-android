@@ -20,8 +20,8 @@ android {
         applicationId = "dev.dsh.mobile"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.7.4"
+        versionCode = 16
+        versionName = "0.7.5"
     }
 
     signingConfigs {
@@ -43,6 +43,10 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

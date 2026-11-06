@@ -37,6 +37,8 @@ class ConnectionService : Service(), Tunnel.Listener {
         val detail: String?,
         val port: Int,
         val endpoint: String?,
+        /** Bumped on every relay <-> direct switch: the page's open streams died. */
+        val transport: Int = 0,
     )
 
     private var tunnel: Tunnel? = null
@@ -48,6 +50,7 @@ class ConnectionService : Service(), Tunnel.Listener {
     @Volatile private var destroyed = false
     @Volatile private var lastNetwork: Network? = null
     @Volatile private var relayConfig: RelayConfig? = null
+    @Volatile private var transportEpoch = 0
     @Volatile private var directTried = false
     @Volatile private var directActive = false
 
@@ -200,6 +203,7 @@ class ConnectionService : Service(), Tunnel.Listener {
             mainHandler.post {
                 if (generation != myGeneration || relayConfig == null) return@post
                 directActive = true
+                transportEpoch += 1
                 connectTo(RelayConfig(target, info.port, relay.room, relay.key))
             }
         }, "dsh-direct").also { it.isDaemon = true }.start()
@@ -309,6 +313,7 @@ class ConnectionService : Service(), Tunnel.Listener {
                     // back to the relay instead of retrying a dead address.
                     directActive = false
                     directTried = true
+                    transportEpoch += 1
                     AppLog.w("DshDirect", "direct lost, falling back to relay")
                     val link = prefs().getString(KEY_LINK, null)
                     if (!link.isNullOrBlank()) {
@@ -349,6 +354,7 @@ class ConnectionService : Service(), Tunnel.Listener {
                 // do not leave the user on a dead transport.
                 directActive = false
                 directTried = true
+                transportEpoch += 1
                 AppLog.w("DshDirect", "direct unreachable, falling back to relay")
                 mainHandler.post {
                     val link = prefs().getString(KEY_LINK, null)
@@ -362,7 +368,7 @@ class ConnectionService : Service(), Tunnel.Listener {
     }
 
     private fun publish(phase: Phase, detail: String?, port: Int) {
-        val next = Snapshot(phase, detail, port, endpoint)
+        val next = Snapshot(phase, detail, port, endpoint, transportEpoch)
         snapshot = next
         if (phase == Phase.READY) maybeGoDirect()
         mainHandler.post {
