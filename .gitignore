@@ -10,3 +10,7 @@ signing/
 icon-preview-*.png
 frame0.png
 app/src/main/assets/
+
+# 私有部署笔记（地址/口令），永不入库
+local-notes/
+.local-notes/
