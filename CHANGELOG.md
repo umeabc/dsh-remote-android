@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased（已合入 main，随下一个版本发布）
+
+代码与资源瘦身，**行为无变化**：
+
+- 删除未引用代码：`LocalProxy.kt` 的 `ByteArrayOutputStream` import 与 `MAX_HEAD_BYTES` 常量。
+- 删除 9 个零引用 drawable（`bg_group`、`bg_handle`、`bg_sheet`、`ic_check_circle`、`ic_close`、
+  `ic_dsh_offline`、`ic_key_expired`、`ic_lock`、`ic_paste`）与 `dimens.xml` 里 10 个零引用尺寸
+  （`icon_size_app_bar` + 整套 `spacing_*`）。
+- `TunnelStream.reset()` 复用 `abort()` 的清理逻辑（保留 `aborted` 守卫与随后的 RST）。
+- 四张与普通图标**字节相同**的 `ic_launcher_round.png` 删除，`roundIcon` 改指 `@mipmap/ic_launcher`。
+
+受跟踪内容 280,428 → 265,026 字节。构建通过，雷电 14 上装包验证：首页、会话顶栏、WebView 正常。
+
 ## 0.7.7
 
 - 顶栏：设备名称过长时不再把刷新/断开/设置挤出屏幕 —— 名称与状态胶囊放进一个可伸缩的行里，
