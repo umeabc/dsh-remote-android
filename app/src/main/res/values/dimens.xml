@@ -12,7 +12,6 @@
     <dimen name="app_bar_height">48dp</dimen>
     <dimen name="progress_bar_height">2dp</dimen>
     <dimen name="status_dot_size">8dp</dimen>
-    <dimen name="icon_size_app_bar">24dp</dimen>
     <dimen name="icon_size_error">42dp</dimen>
     <dimen name="viewfinder_size">240dp</dimen>
 
@@ -21,15 +20,6 @@
     <dimen name="border_width_focus">1.5dp</dimen>
 
     <!-- Spacing Scale (4/8dp baseline) -->
-    <dimen name="spacing_2xs">2dp</dimen>
-    <dimen name="spacing_xs">4dp</dimen>
-    <dimen name="spacing_sm">8dp</dimen>
-    <dimen name="spacing_md">12dp</dimen>
-    <dimen name="spacing_lg">16dp</dimen>
-    <dimen name="spacing_xl">20dp</dimen>
-    <dimen name="spacing_2xl">24dp</dimen>
-    <dimen name="spacing_3xl">32dp</dimen>
-    <dimen name="spacing_4xl">40dp</dimen>
 
     <!-- Typography Text Sizes (sp) -->
     <dimen name="text_headline_large">26sp</dimen>
