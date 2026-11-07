@@ -353,9 +353,7 @@ class Tunnel(private val config: RelayConfig, private val listener: Listener) {
 
         fun reset() {
             if (aborted) return
-            aborted = true
-            queue.clear()
-            queue.offer(ByteArray(0))
+            abort()
             sendFrame(id, TYPE_RST, null)
         }
     }
