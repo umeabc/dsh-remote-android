@@ -203,6 +203,5 @@ class LocalProxy(
     private companion object {
         const val TAG = "DshProxy"
         const val CRLF = "\r\n"
-
     }
 }
